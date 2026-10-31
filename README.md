@@ -215,3 +215,9 @@ python -m unittest discover -s tests -t .
 ```
 
 沒裝 ffmpeg 時，影片轉檔的測試會自動跳過。
+
+## 授權
+
+Copyright (C) 2026 zhChenOuO
+
+本專案採用 [GNU Affero General Public License v3.0](LICENSE)（AGPL-3.0）授權。你可以自由使用、修改和散布，包括商業用途。但如果你散布修改過的版本，**或把修改過的版本架成網路服務給其他人使用**，就必須以相同授權公開完整的原始碼。
