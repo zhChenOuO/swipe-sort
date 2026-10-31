@@ -12,9 +12,10 @@
 <header>
   <button id="menu-btn" class="chip" title="資料夾選單" aria-label="資料夾選單">☰</button>
   <span id="folder-name"></span>
-  <span id="count" class="muted"></span>
-  <button id="keep-all-btn" class="chip" title="把這個資料夾剩下的全部保留">✓ 全留</button>
-  <button id="trash-all-btn" class="chip" title="把這個資料夾剩下的全部移到垃圾桶">✕ 全刪</button>
+  <span id="count" class="muted sort-only"></span>
+  <button id="mode-btn" class="chip"><span class="ic">👁</span><span class="lbl"> 瀏覽</span></button>
+  <button id="keep-all-btn" class="chip sort-only" title="把這個資料夾剩下的全部保留"><span class="ic">✓</span><span class="lbl"> 全留</span></button>
+  <button id="trash-all-btn" class="chip sort-only" title="把這個資料夾剩下的全部移到垃圾桶"><span class="ic">✕</span><span class="lbl"> 全刪</span></button>
   <button id="trash-btn" class="chip" title="垃圾桶">🗑 <span id="trash-count">0</span></button>
   <button id="rescan-btn" class="chip" title="重新掃描">⟳</button>
 </header>
@@ -26,8 +27,8 @@
 <main id="sort-view">
   <div id="stage">
     <div id="empty" hidden>
-      <p>這個資料夾已經整理完了 🎉</p>
-      <button id="reset-kept-btn" class="chip">把「保留」的重新列出來</button>
+      <p id="empty-msg">這個資料夾已經整理完了 🎉</p>
+      <button id="reset-kept-btn" class="chip sort-only">把「保留」的重新列出來</button>
     </div>
   </div>
   <div id="info" class="muted"></div>
@@ -38,10 +39,12 @@
     <span id="time" class="muted"></span>
   </div>
   <nav id="actions">
-    <button id="trash-action" class="round bad" title="刪除 (←)">✕</button>
-    <button id="undo-action" class="round small" title="還原上一步 (↑ 或往上滑)">↶</button>
-    <button id="move-action" class="round small" title="搬移到其他資料夾 (↓ 或往下滑)">📁</button>
-    <button id="keep-action" class="round good" title="保留 (→)">✓</button>
+    <button id="prev-action" class="round browse-only" title="上一張 (←)">‹</button>
+    <button id="next-action" class="round browse-only" title="下一張 (→)">›</button>
+    <button id="trash-action" class="round bad sort-only" title="刪除 (←)">✕</button>
+    <button id="undo-action" class="round small sort-only" title="還原上一步 (↑ 或往上滑)">↶</button>
+    <button id="move-action" class="round small sort-only" title="搬移到其他資料夾 (↓ 或往下滑)">📁</button>
+    <button id="keep-action" class="round good sort-only" title="保留 (→)">✓</button>
   </nav>
 </main>
 

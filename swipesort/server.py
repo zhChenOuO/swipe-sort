@@ -144,6 +144,9 @@ def make_handler(app: App):
                 if url.path == "/api/queue":
                     limit = max(1, min(int(q.get("limit", 30)), 200))
                     return self._json({"items": app.lib.queue(q.get("folder", ""), q.get("after", ""), limit)})
+                if url.path == "/api/list":
+                    limit = max(1, min(int(q.get("limit", 100)), 500))
+                    return self._json({"items": app.lib.listing(q.get("folder", ""), q.get("after", ""), limit)})
                 if url.path == "/api/trash":
                     return self._json({"items": app.lib.trash_items(), "stats": app.lib.stats()})
                 if url.path in ("/api/file", "/api/preview", "/api/video"):

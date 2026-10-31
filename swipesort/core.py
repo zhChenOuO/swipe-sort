@@ -177,21 +177,41 @@ class Library:
                         pending[f] = pending.get(f, 0) + 1
             return [{"path": f, "total": total[f], "pending": pending.get(f, 0)} for f in sorted(total)]
 
+    def _start(self, folder: str, after: str) -> int:
+        start = bisect.bisect_right(self._paths, after) if after else 0
+        if folder:
+            start = max(start, bisect.bisect_left(self._paths, folder + "/"))
+        return start
+
     def queue(self, folder: str = "", after: str = "", limit: int = 30) -> list[dict]:
         """folder 底下(含子資料夾)還沒決定的檔案,依路徑排序,從 after 之後開始。"""
         folder = folder.strip("/")
         with self._lock:
-            start = bisect.bisect_right(self._paths, after) if after else 0
-            if folder:
-                start = max(start, bisect.bisect_left(self._paths, folder + "/"))
             out = []
-            for rel in self._paths[start:]:
+            for rel in self._paths[self._start(folder, after):]:
                 if not in_folder(rel, folder):
                     break
                 if rel not in self._decided:
                     out.append(self._entries[rel].as_dict())
                     if len(out) >= limit:
                         break
+            return out
+
+    def listing(self, folder: str = "", after: str = "", limit: int = 100) -> list[dict]:
+        """瀏覽模式用:folder 底下所有還在原位的檔案,不管處理過沒有,附上決定。"""
+        folder = folder.strip("/")
+        with self._lock:
+            decisions = dict(self._db.execute("SELECT path, decision FROM decisions"))
+            out = []
+            for rel in self._paths[self._start(folder, after):]:
+                if not in_folder(rel, folder):
+                    break
+                d = decisions.get(rel)
+                if d in (TRASH, MOVE):  # 已經不在這裡了
+                    continue
+                out.append({**self._entries[rel].as_dict(), "decision": d})
+                if len(out) >= limit:
+                    break
             return out
 
     def stats(self) -> dict:

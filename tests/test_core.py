@@ -178,6 +178,16 @@ class LibraryTest(unittest.TestCase):
                 self.lib.decide("2024/b.png", "move", bad)
         self.assertTrue((self.root / "2024/b.png").exists())
 
+    def test_listing_includes_decided_but_not_gone(self):
+        self.lib.decide("2024/b.png", "keep")
+        self.lib.decide("2024/trip/c.mp4", "trash")
+        self.lib.decide("a.jpg", "move", "2024/trip")
+        items = {i["path"]: i["decision"] for i in self.lib.listing("2024")}
+        self.assertEqual(items, {"2024/b.png": "keep", "2024/trip/a.jpg": None, "2024/trip/d.heic": None})
+        first = self.lib.listing(limit=2)
+        rest = self.lib.listing(after=first[-1]["path"])
+        self.assertEqual(len(first + rest), 4)
+
     def test_rejects_bad_paths(self):
         for bad in ["", "../x.jpg", "/etc/passwd", "2024/../a.jpg", f"{TRASH_DIR}/a.jpg", "notes.txt"]:
             with self.subTest(bad=bad), self.assertRaises(SwipeError):

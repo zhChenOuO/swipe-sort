@@ -16,7 +16,11 @@ const state = {
   history: [],
   expanded: new Set(JSON.parse(load("expanded", "[]") || "[]")),
   stats: {},
+  mode: load("mode", "sort") === "browse" ? "browse" : "sort",
+  // 瀏覽模式:可以前後翻,不做任何決定
+  browse: { items: [], index: 0, after: "", exhausted: false, loading: null },
 };
+const browsing = () => state.mode === "browse";
 
 function load(k, d) { try { return localStorage.getItem("swipe-sort:" + k) ?? d; } catch { return d; } }
 function save(k, v) { try { localStorage.setItem("swipe-sort:" + k, v); } catch {} }
@@ -73,7 +77,7 @@ async function loadFolders() {
   updateCounts();
   if (stats.scanning) {
     toast("正在掃描資料夾，請稍候…");
-    setTimeout(() => loadFolders().then(resetQueue).catch(() => {}), 2000);
+    setTimeout(() => loadFolders().then(reload).catch(() => {}), 2000);
   }
 }
 
@@ -148,7 +152,7 @@ function selectFolder(path) {
   state.folder = path;
   save("folder", path);
   updateCounts();
-  resetQueue();
+  reload();
 }
 
 if (load("menu", "open") === "closed") document.body.classList.add("menu-closed");
@@ -250,25 +254,30 @@ function makeCard(item) {
 
 function topCard() { return stage.querySelector(".card:not(.back):not(.gone)"); }
 
-function render() {
-  const [cur, next] = state.queue;
-  if (rendered !== (cur?.path ?? null)) {
-    // 已經建好的卡片(尤其是預先載好的下一張)直接沿用,換張時才不會閃
-    const existing = new Map([...stage.querySelectorAll(".card:not(.gone)")].map((c) => [c.dataset.path, c]));
-    const curEl = cur && (existing.get(cur.path) || makeCard(cur));
-    const nextEl = next && (existing.get(next.path) || makeCard(next));
-    for (const c of existing.values()) if (c !== curEl && c !== nextEl) c.remove();
-    if (nextEl) { nextEl.classList.add("back"); nextEl.querySelector("video")?.pause(); stage.prepend(nextEl); }
-    if (curEl) {
-      curEl.classList.remove("back", "snap");
-      curEl.style.transform = "";
-      stage.insertBefore(curEl, stage.querySelector(".card.gone"));
-      const v = curEl.querySelector("video");
-      if (v) { v.muted = state.muted; v.play().catch(() => {}); }
-    }
-    rendered = cur?.path ?? null;
-    bindVideo();
+// 已經建好的卡片(尤其是預先載好的鄰近幾張)直接沿用,換張時才不會閃
+function placeCards(cur, neighbors) {
+  if (rendered === (cur?.path ?? null)) return;
+  const existing = new Map([...stage.querySelectorAll(".card:not(.gone)")].map((c) => [c.dataset.path, c]));
+  const curEl = cur && (existing.get(cur.path) || makeCard(cur));
+  const backEls = neighbors.filter(Boolean).map((it) => existing.get(it.path) || makeCard(it));
+  for (const c of existing.values()) if (c !== curEl && !backEls.includes(c)) c.remove();
+  for (const b of backEls) { b.classList.add("back"); b.querySelector("video")?.pause(); stage.prepend(b); }
+  if (curEl) {
+    curEl.classList.remove("back", "snap");
+    curEl.style.transform = "";
+    stage.insertBefore(curEl, stage.querySelector(".card.gone"));
+    const v = curEl.querySelector("video");
+    if (v) { v.muted = state.muted; v.play().catch(() => {}); }
   }
+  rendered = cur?.path ?? null;
+  bindVideo();
+}
+
+function render() {
+  if (browsing()) return renderBrowse();
+  const [cur, next] = state.queue;
+  placeCards(cur, [next]);
+  $("empty-msg").textContent = "這個資料夾已經整理完了 🎉";
   $("empty").hidden = !!cur || !!state.loading || !state.exhausted || !!state.stats.scanning;
   setPath($("info"), cur ? `${cur.path} · ${fmtSize(cur.size)} · ${fmtDate(cur.mtime)}` : "");
   for (const id of ["trash-action", "keep-action"]) $(id).disabled = !cur;
@@ -425,6 +434,104 @@ async function undo() {
   }
 }
 
+// ---------- 瀏覽模式 ----------
+
+function reload() {
+  rendered = null;
+  stage.querySelectorAll(".card").forEach((c) => c.remove());
+  return browsing() ? resetBrowse() : resetQueue();
+}
+
+function setModeLabel() {
+  $("mode-btn").querySelector(".ic").textContent = browsing() ? "✋" : "👁";
+  $("mode-btn").querySelector(".lbl").textContent = browsing() ? " 整理" : " 瀏覽";
+}
+
+function setMode(mode) {
+  state.mode = mode;
+  save("mode", mode);
+  document.body.classList.toggle("browse", browsing());
+  setModeLabel();
+  $("mode-btn").title = browsing() ? "切回整理模式" : "切到純瀏覽模式（只看不處理）";
+  reload();
+}
+
+function resetBrowse() {
+  state.browse = { items: [], index: 0, after: "", exhausted: false, loading: null };
+  render();
+  return browseMore();
+}
+
+function browseMore() {
+  const b = state.browse;
+  if (b.loading || b.exhausted) return b.loading;
+  const folder = state.folder;
+  b.loading = api(`/api/list?folder=${encodeURIComponent(folder)}&after=${encodeURIComponent(b.after)}&limit=100`)
+    .then(({ items }) => {
+      if (folder !== state.folder || b !== state.browse) return;
+      b.items.push(...items);
+      if (items.length) b.after = items[items.length - 1].path;
+      if (items.length < 100) b.exhausted = true;
+      b.loading = null;
+      render();
+    })
+    .catch((e) => { b.loading = null; toast(`讀取失敗：${e.message}`); });
+  return b.loading;
+}
+
+function renderBrowse() {
+  const b = state.browse;
+  const cur = b.items[b.index];
+  placeCards(cur, [b.items[b.index + 1], b.items[b.index - 1]]);
+  $("empty-msg").textContent = "這個資料夾沒有圖片或影片";
+  $("empty").hidden = !!cur || !!b.loading || !b.exhausted || !!state.stats.scanning;
+  const total = b.exhausted ? b.items.length : `${b.items.length}+`;
+  setPath($("info"), cur
+    ? `${cur.path} · ${fmtSize(cur.size)} · ${fmtDate(cur.mtime)}${cur.decision === "keep" ? " · ✓ 已保留" : ""} · ${b.index + 1}/${total}`
+    : "");
+  $("prev-action").disabled = b.index <= 0;
+  $("next-action").disabled = !cur || (b.index >= b.items.length - 1 && b.exhausted);
+  const from = Math.max(0, b.index - 2);
+  $("strip").replaceChildren(...b.items.slice(from, b.index + 4).map((it, k) => {
+    const i = from + k;
+    const t = itemThumb(it, i === b.index ? "cur" : "next");
+    if (it.decision === "keep") {
+      const m = document.createElement("span");
+      m.className = "mark keep";
+      m.textContent = "✓";
+      t.append(m);
+    }
+    t.style.cursor = "pointer";
+    t.onclick = () => browseGo(i - b.index);
+    return t;
+  }));
+  for (const it of b.items.slice(b.index + 1, b.index + 4)) {
+    if (it.kind === "image" && !it._pre) { it._pre = new Image(); it._pre.src = previewUrl(it.path, PREVIEW); }
+  }
+  if (b.index >= b.items.length - 10) browseMore();
+}
+
+function browseGo(delta) {
+  const b = state.browse;
+  const ni = b.index + delta;
+  if (!delta || state.busy) return;
+  if (ni < 0) return toast("已經是第一張");
+  if (ni >= b.items.length) {
+    if (!b.exhausted) { browseMore(); return toast("載入中…"); }
+    return toast("已經是最後一張");
+  }
+  const card = topCard();
+  if (card) {
+    card.classList.add("fly", "gone");
+    card.style.transform = `translate(${delta > 0 ? -110 : 110}%, 0)`;
+    card.style.opacity = "0";
+    card.querySelector("video")?.pause();
+    setTimeout(() => card.remove(), 260);
+  }
+  b.index = ni;
+  render();
+}
+
 // ---------- 拖曳 ----------
 
 let drag = null;
@@ -444,6 +551,10 @@ stage.addEventListener("pointermove", (e) => {
   drag.dy = e.clientY - drag.y;
   const { dx, dy } = drag;
   if (Math.abs(dx) > 6 || Math.abs(dy) > 6) { dragging = true; stage.classList.add("dragging"); }
+  if (browsing()) {
+    drag.card.style.transform = `translate(${dx}px, 0)`;
+    return;
+  }
   const vert = isVertical(dx, dy);
   drag.card.style.transform = vert
     ? `translate(${dx * 0.3}px, ${dy * 0.6}px)`
@@ -467,14 +578,22 @@ function endDrag(e) {
   const v = Math.abs(dx) / Math.max(performance.now() - t, 1);
   drag = null;
   const vert = isVertical(dx, dy);
-  if (vert && Math.abs(dy) > VERTICAL_DY) {
+  const swiped = !vert && (Math.abs(dx) > stage.clientWidth * 0.25 || (Math.abs(dx) > 40 && v > 0.6));
+  if (browsing()) {
+    // 跟一般相簿一樣:往左滑看下一張;垂直拖動沒有作用,照常彈回原位
+    if (swiped) {
+      dragging = false;
+      card.classList.add("snap");
+      card.style.transform = "";
+      return browseGo(dx < 0 ? 1 : -1);
+    }
+  } else if (vert && Math.abs(dy) > VERTICAL_DY) {
     dragging = false;
     card.classList.add("snap");
     card.style.transform = "";
     card.querySelectorAll(".badge").forEach((b) => { b.style.opacity = 0; });
     return dy < 0 ? undo() : openMove();
-  }
-  if (!vert && (Math.abs(dx) > stage.clientWidth * 0.25 || (Math.abs(dx) > 40 && v > 0.6))) {
+  } else if (swiped) {
     dragging = false;
     return decide(dx > 0 ? "keep" : "trash");
   }
@@ -539,7 +658,7 @@ $("back-btn").onclick = async () => {
   $("trash-view").hidden = true;
   $("sort-view").hidden = false;
   await loadFolders();
-  await resetQueue();
+  await reload();
 };
 $("restore-all-btn").onclick = async () => {
   if (!confirm("把垃圾桶裡的檔案全部搬回原位？")) return;
@@ -567,7 +686,7 @@ $("rescan-btn").onclick = async () => {
     const r = await api("/api/rescan", {});
     toast(`掃描完成，共 ${r.total} 個檔案`);
     await loadFolders();
-    await resetQueue();
+    await reload();
   } catch (e) { toast(e.message); }
 };
 $("reset-kept-btn").onclick = async () => {
@@ -599,13 +718,16 @@ $("trash-action").onclick = () => decide("trash");
 $("keep-action").onclick = () => decide("keep");
 $("undo-action").onclick = undo;
 $("move-action").onclick = () => openMove();
+$("prev-action").onclick = () => browseGo(-1);
+$("next-action").onclick = () => browseGo(1);
+$("mode-btn").onclick = () => setMode(browsing() ? "sort" : "browse");
 
 // ---------- 搬移 ----------
 
 const recentTargets = () => { try { return JSON.parse(load("recent", "[]")) || []; } catch { return []; } };
 
 function openMove() {
-  if (!state.queue[0] || state.busy) return;
+  if (browsing() || !state.queue[0] || state.busy) return;
   $("move-filter").value = "";
   renderMoveList();
   $("move-dialog").showModal();
@@ -654,6 +776,15 @@ $("move-dialog").onclick = (e) => { if (e.target === $("move-dialog")) $("move-d
 
 document.addEventListener("keydown", (e) => {
   if (!$("trash-view").hidden || $("move-dialog").open || e.metaKey || e.ctrlKey) return;
+  if (browsing()) {
+    if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); browseGo(-1); }
+    else if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); browseGo(1); }
+    else if (e.key === " ") {
+      const v = topCard()?.querySelector("video");
+      if (v) { e.preventDefault(); v.paused ? v.play().catch(() => {}) : v.pause(); }
+    }
+    return;
+  }
   if (e.key === "ArrowLeft") { e.preventDefault(); decide("trash"); }
   else if (e.key === "ArrowRight") { e.preventDefault(); decide("keep"); }
   else if (e.key === "ArrowUp" || e.key === "u" || e.key === "U" || e.key === "Backspace") { e.preventDefault(); undo(); }
@@ -664,4 +795,6 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-loadFolders().then(resetQueue).catch((e) => toast(`連不上伺服器：${e.message}`));
+document.body.classList.toggle("browse", browsing());
+setModeLabel();
+loadFolders().then(reload).catch((e) => toast(`連不上伺服器：${e.message}`));
