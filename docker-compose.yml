@@ -1,0 +1,16 @@
+services:
+  swipe-sort:
+    build: .
+    container_name: swipe-sort
+    restart: unless-stopped
+    # 用 NAS 上對資料夾有讀寫權限的帳號跑,SSH 進 NAS 執行 `id <帳號>` 查 uid/gid
+    user: "1026:100"
+    ports:
+      - "8080:8080"
+    environment:
+      # 不設就不需要密碼;對外開放時一定要設
+      SWIPE_PASSWORD: ""
+    volumes:
+      # 左邊換成要整理的父資料夾,底下所有子資料夾都會被掃描
+      - /volume1/photo:/media
+      - ./data:/data

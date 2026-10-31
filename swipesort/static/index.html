@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#111">
+<title>Swipe Sort</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <button id="menu-btn" class="chip" title="資料夾選單" aria-label="資料夾選單">☰</button>
+  <span id="folder-name"></span>
+  <span id="count" class="muted"></span>
+  <button id="keep-all-btn" class="chip" title="把這個資料夾剩下的全部保留">✓ 全留</button>
+  <button id="trash-all-btn" class="chip" title="把這個資料夾剩下的全部移到垃圾桶">✕ 全刪</button>
+  <button id="trash-btn" class="chip" title="垃圾桶">🗑 <span id="trash-count">0</span></button>
+  <button id="rescan-btn" class="chip" title="重新掃描">⟳</button>
+</header>
+
+<div id="layout">
+<aside id="sidebar" aria-label="資料夾"><div id="tree"></div></aside>
+<div id="backdrop"></div>
+<div id="content">
+<main id="sort-view">
+  <div id="stage">
+    <div id="empty" hidden>
+      <p>這個資料夾已經整理完了 🎉</p>
+      <button id="reset-kept-btn" class="chip">把「保留」的重新列出來</button>
+    </div>
+  </div>
+  <div id="info" class="muted"></div>
+  <div id="strip"></div>
+  <div id="seek-row" hidden>
+    <button id="mute-btn" class="chip">🔇</button>
+    <input id="seek" type="range" min="0" max="1000" value="0" aria-label="影片進度">
+    <span id="time" class="muted"></span>
+  </div>
+  <nav id="actions">
+    <button id="trash-action" class="round bad" title="刪除 (←)">✕</button>
+    <button id="undo-action" class="round small" title="還原上一步 (↑ 或往上滑)">↶</button>
+    <button id="move-action" class="round small" title="搬移到其他資料夾 (↓ 或往下滑)">📁</button>
+    <button id="keep-action" class="round good" title="保留 (→)">✓</button>
+  </nav>
+</main>
+
+<section id="trash-view" hidden>
+  <div class="bar">
+    <button id="back-btn" class="chip">← 返回</button>
+    <span id="trash-summary" class="muted"></span>
+    <span class="spacer"></span>
+    <button id="restore-all-btn" class="chip">全部還原</button>
+    <button id="purge-btn" class="chip danger">永久刪除</button>
+  </div>
+  <div id="grid"></div>
+</section>
+</div>
+</div>
+
+<dialog id="move-dialog">
+  <div class="move-top">
+    <strong>搬到哪個資料夾？</strong>
+    <button id="move-cancel" type="button" class="chip">取消</button>
+  </div>
+  <input id="move-filter" type="text" placeholder="篩選，或輸入新資料夾路徑（例如 Photos/精選）" autocomplete="off" autocapitalize="off" spellcheck="false">
+  <div id="move-list"></div>
+</dialog>
+
+<div id="toast" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
