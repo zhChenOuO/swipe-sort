@@ -795,6 +795,9 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+// iOS Safari 不理會 user-scalable=no,兩指縮放要在這裡擋
+document.addEventListener("gesturestart", (e) => e.preventDefault());
+
 document.body.classList.toggle("browse", browsing());
 setModeLabel();
 loadFolders().then(reload).catch((e) => toast(`連不上伺服器：${e.message}`));
