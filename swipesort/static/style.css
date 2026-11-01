@@ -11,8 +11,12 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
   font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", sans-serif; }
-body { display: flex; flex-direction: column; overscroll-behavior: none; }
-button { font: inherit; color: inherit; cursor: pointer; }
+/* 手機:不要點兩下放大、不要點擊時的灰色反白;整頁不捲動,卡片飛出去也不會撐出捲軸 */
+html { touch-action: manipulation; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+html, body { overflow: hidden; }
+body { display: flex; flex-direction: column; overscroll-behavior: none; height: 100dvh; }
+button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
+header, #actions, #strip, #seek-row, .node { user-select: none; -webkit-user-select: none; }
 .muted { color: var(--muted); }
 [hidden] { display: none !important; }
 .ltr { direction: ltr; unicode-bidi: isolate; }
@@ -22,7 +26,7 @@ header, .bar { display: flex; gap: 8px; align-items: center; padding: 10px 16px;
 #folder-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; direction: rtl; text-align: left; }
 
-#layout { flex: 1; display: flex; min-height: 0; position: relative; }
+#layout { flex: 1; display: flex; min-height: 0; position: relative; overflow: hidden; }
 #content { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 #sidebar { width: 280px; flex: none; overflow-y: auto; border-right: 1px solid var(--line);
   background: var(--bg); padding: 6px 0; }
@@ -49,7 +53,7 @@ body.menu-closed #sidebar { display: none; }
 .chip.danger { border-color: var(--bad); color: var(--bad); }
 .spacer { flex: 1; }
 
-#sort-view { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+#sort-view { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 #stage { flex: 1; position: relative; margin: 12px 16px 0; min-height: 0; touch-action: none; }
 .card { position: absolute; inset: 0; background: transparent;
   display: flex; align-items: center; justify-content: center; user-select: none;
@@ -60,7 +64,7 @@ body.menu-closed #sidebar { display: none; }
 .card.fly { transition: transform .25s ease-out, opacity .25s ease-out; }
 .card.snap { transition: transform .2s ease-out; }
 .card img, .card video { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 12px;
-  pointer-events: none; -webkit-user-drag: none; }
+  pointer-events: none; -webkit-user-drag: none; -webkit-touch-callout: none; }
 .card .badge { position: absolute; top: 18px; padding: 4px 14px; border: 3px solid;
   border-radius: 8px; font-weight: 700; font-size: 26px; opacity: 0; letter-spacing: 2px; }
 .card .badge.keep { left: 18px; color: var(--good); transform: rotate(-12deg); }
